@@ -7,6 +7,7 @@ ENV BIN_TTL 604800
 ENV MAX_RAW_SIZE 40960
 
 ADD requestbin  /app
+ADD requirements.txt /app
 
 RUN apk add --update \
       gcc python python-dev py-pip \
