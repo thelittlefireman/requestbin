@@ -1,28 +1,35 @@
-FROM python:2.7-alpine
+FROM alpine:3.4
+MAINTAINER Chris <c@crccheck.com>
 
-RUN apk update && apk upgrade && \
-    apk add \
-        gcc python python-dev py-pip \
-        # greenlet
-        musl-dev \
-        # sys/queue.h
-        bsd-compat-headers \
-        # event.h
-        libevent-dev \
-    && rm -rf /var/cache/apk/*
+ENV REQUESTBIN_VERSION master
+ENV MAX_REQUESTS 20
+ENV BIN_TTL 604800
+ENV MAX_RAW_SIZE 40960
 
-# want all dependencies first so that if it's just a code change, don't have to
-# rebuild as much of the container
-ADD requirements.txt /opt/requestbin/
-RUN pip install -r /opt/requestbin/requirements.txt \
-    && rm -rf ~/.pip/cache
+ADD requestbin  /app
 
-# the code
-ADD requestbin  /opt/requestbin/requestbin/
+RUN apk add --update \
+      gcc python python-dev py-pip \
+      # greenlet
+      musl-dev \
+      # sys/queue.h
+      bsd-compat-headers \
+      # event.h
+      libevent-dev \
+      && rm -rf /var/cache/apk/*
 
-EXPOSE 8000
+WORKDIR /app
 
-WORKDIR /opt/requestbin
-CMD gunicorn -b 0.0.0.0:8000 --worker-class gevent --workers 2 --max-requests 1000 requestbin:app
+RUN pip install --quiet --disable-pip-version-check -r requirements.txt
+
+# must enable REALM=prod to load REDIS_URL
+ENV REALM prod
+RUN sed -i 's/DEBUG = False/DEBUG = True/' requestbin/config.py
+
+ENV PORT 80
+EXPOSE 80
+
+# Have to use this format to use $PORT environment variable
+CMD gunicorn --bind=0.0.0.0:$PORT --worker-class=gevent --workers=2 --max-requests=1000 requestbin:app
 
 
